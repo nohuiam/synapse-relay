@@ -1,0 +1,70 @@
+{
+  "server_id": "synapse-relay",
+  "port": 3025,
+  "http_port": 8025,
+  "websocket_port": 9025,
+  "heartbeat": {
+    "interval": 30000,
+    "timeout": 90000
+  },
+  "signals": {
+    "incoming": [
+      "PING",
+      "HEARTBEAT",
+      "RELAY_REQUEST",
+      "RELAY_RESPONSE"
+    ],
+    "outgoing": [
+      "PONG",
+      "RELAY_REQUEST",
+      "RELAY_RESPONSE",
+      "RELAY_FAILED"
+    ]
+  },
+  "peers": [
+    "consciousness-mcp",
+    "context-guardian",
+    "quartermaster",
+    "snapshot",
+    "catasorter",
+    "smart-file-organizer",
+    "bonzai-bloat-buster",
+    "enterspect",
+    "neurogenesis-engine",
+    "trinity-coordinator",
+    "project-context",
+    "knowledge-curator",
+    "pk-manager",
+    "intelligent-router",
+    "verifier-mcp",
+    "safe-batch-processor",
+    "intake-guardian",
+    "health-monitor"
+  ],
+  "peer_ports": {
+    "consciousness-mcp": 3028,
+    "context-guardian": 3001,
+    "quartermaster": 3002,
+    "snapshot": 3003,
+    "catasorter": 3005,
+    "smart-file-organizer": 3007,
+    "bonzai-bloat-buster": 3008,
+    "enterspect": 3009,
+    "neurogenesis-engine": 3010,
+    "trinity-coordinator": 3012,
+    "project-context": 3016,
+    "knowledge-curator": 3017,
+    "pk-manager": 3018,
+    "intelligent-router": 3020,
+    "verifier-mcp": 3021,
+    "safe-batch-processor": 3022,
+    "intake-guardian": 3023,
+    "health-monitor": 3024
+  },
+  "buffer_config": {
+    "max_size": 10000,
+    "ttl_hours": 24,
+    "retry_intervals_ms": [1000, 5000, 15000]
+  },
+  "stats_aggregation_interval_ms": 3600000
+}
