@@ -1,7 +1,13 @@
 /**
  * InterLock Module Exports
+ * Uses @bop/interlock shared package for socket management.
  */
 
+// Re-export shared package types
+export type { Signal, PeerInfo, SocketStats, RemoteInfo } from '@bop/interlock';
+export { SignalTypes as SharedSignalTypes, getSignalName } from '@bop/interlock';
+
+// Local protocol exports (server-specific signals)
 export { encodeMessage, decodeMessage, SignalTypes } from './protocol.js';
 export type { InterLockMessage, SignalType } from './protocol.js';
 
@@ -17,5 +23,6 @@ export {
   sendToPeer,
   sendHeartbeat,
   getSocket,
-  isInterLockRunning
+  isInterLockRunning,
+  getSocketStats
 } from './socket.js';

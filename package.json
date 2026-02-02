@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@bop/interlock": "file:../interlock-shared",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "better-sqlite3": "^9.2.2",
     "cors": "^2.8.5",

@@ -2,78 +2,90 @@
  * InterLock UDP Socket
  *
  * Handles UDP communication for the mesh network.
+ * Updated to use @bop/interlock shared package for peer management.
  */
-import dgram from 'dgram';
-import { decodeMessage, encodeMessage, SignalTypes } from './protocol.js';
+import { InterlockSocket as SharedSocket } from '@bop/interlock';
+import { encodeMessage, SignalTypes } from './protocol.js';
 import { validateMessage, initTumbler } from './tumbler.js';
 import { handleMessage, initHandlers } from './handlers.js';
-let socket = null;
+let sharedSocket = null;
+let localSocket = null;
 let port = 3025;
 /**
  * Start the InterLock UDP socket
  */
 export async function startInterLock(config) {
-    return new Promise((resolve, reject) => {
-        port = config.port;
-        // Initialize tumbler with allowed peers and signals
-        const allSignals = [...config.signals.incoming, ...config.signals.outgoing];
-        initTumbler(config.peers, allSignals);
-        socket = dgram.createSocket('udp4');
-        // Initialize handlers with send context
-        initHandlers({
-            sendResponse: (target, targetPort, message) => {
-                if (socket) {
-                    socket.send(message, targetPort, target);
-                }
-            },
-            config
-        });
-        socket.on('message', async (msg, rinfo) => {
-            const message = decodeMessage(msg);
-            if (!message) {
-                console.error(`[synapse-relay] Failed to decode message from ${rinfo.address}:${rinfo.port}`);
-                return;
+    port = config.port;
+    // Initialize tumbler with allowed peers and signals
+    const allSignals = [...config.signals.incoming, ...config.signals.outgoing];
+    initTumbler(config.peers, allSignals);
+    // Transform peer_ports to shared package format
+    const peersConfig = {};
+    for (const [serverId, peerPort] of Object.entries(config.peer_ports)) {
+        peersConfig[serverId] = { host: '127.0.0.1', port: peerPort };
+    }
+    // Create shared socket config
+    // Note: server_id and heartbeat may exist in config JSON but not in TypeScript type
+    const rawConfig = config;
+    const sharedConfig = {
+        port: config.port,
+        serverId: rawConfig.server_id || 'synapse-relay',
+        peers: peersConfig,
+        heartbeat: {
+            interval: (rawConfig.heartbeat?.interval) || 30000,
+            timeout: (rawConfig.heartbeat?.timeout) || 90000
+        }
+    };
+    // Create shared socket for peer management
+    sharedSocket = new SharedSocket(sharedConfig);
+    // Initialize handlers with send context
+    initHandlers({
+        sendResponse: (target, targetPort, message) => {
+            if (localSocket) {
+                localSocket.send(message, targetPort, target);
             }
-            if (!validateMessage(message)) {
-                return;
-            }
-            await handleMessage(message);
-        });
-        socket.on('error', (err) => {
-            console.error('[synapse-relay] InterLock socket error:', err.message);
-            reject(err);
-        });
-        socket.on('listening', () => {
-            const addr = socket.address();
-            console.error(`[synapse-relay] InterLock listening on port ${addr.port}`);
-            resolve(socket);
-        });
-        socket.bind(port);
+        },
+        config
     });
+    // Listen for signals from shared socket
+    sharedSocket.on('signal', async (signal, rinfo) => {
+        // Convert shared signal format to local InterLockMessage format
+        const message = {
+            signalType: signal.type,
+            sender: signal.data.serverId,
+            version: signal.version,
+            timestamp: signal.timestamp,
+            payload: signal.data
+        };
+        if (!validateMessage(message)) {
+            return;
+        }
+        await handleMessage(message);
+    });
+    // Start the shared socket
+    await sharedSocket.start();
+    // Get internal socket reference for compatibility
+    localSocket = sharedSocket.socket;
+    console.error(`[synapse-relay] InterLock listening on port ${port}`);
+    return localSocket;
 }
 /**
  * Stop the InterLock socket
  */
 export async function stopInterLock() {
-    return new Promise((resolve) => {
-        if (socket) {
-            socket.close(() => {
-                console.error('[synapse-relay] InterLock socket closed');
-                socket = null;
-                resolve();
-            });
-        }
-        else {
-            resolve();
-        }
-    });
+    if (sharedSocket) {
+        await sharedSocket.stop();
+        console.error('[synapse-relay] InterLock socket closed');
+        sharedSocket = null;
+        localSocket = null;
+    }
 }
 /**
  * Send a message to a peer
  */
 export function sendToPeer(targetPort, message) {
-    if (socket) {
-        socket.send(message, targetPort, 'localhost');
+    if (localSocket) {
+        localSocket.send(message, targetPort, 'localhost');
     }
 }
 /**
@@ -92,12 +104,18 @@ export function sendHeartbeat(peerPorts) {
  * Get the UDP socket
  */
 export function getSocket() {
-    return socket;
+    return localSocket;
 }
 /**
  * Check if InterLock is running
  */
 export function isInterLockRunning() {
-    return socket !== null;
+    return sharedSocket !== null;
+}
+/**
+ * Get socket statistics from shared package
+ */
+export function getSocketStats() {
+    return sharedSocket?.getStats() || null;
 }
 //# sourceMappingURL=socket.js.map

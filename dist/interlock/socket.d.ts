@@ -2,6 +2,7 @@
  * InterLock UDP Socket
  *
  * Handles UDP communication for the mesh network.
+ * Updated to use @bop/interlock shared package for peer management.
  */
 import dgram from 'dgram';
 import type { InterlockConfig } from '../types.js';
@@ -29,4 +30,8 @@ export declare function getSocket(): dgram.Socket | null;
  * Check if InterLock is running
  */
 export declare function isInterLockRunning(): boolean;
+/**
+ * Get socket statistics from shared package
+ */
+export declare function getSocketStats(): import("@bop/interlock").SocketStats | null;
 //# sourceMappingURL=socket.d.ts.map
