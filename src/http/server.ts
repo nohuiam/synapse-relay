@@ -9,12 +9,22 @@ import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'http';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'crypto';
 import { getDatabase } from '../database/schema.js';
 import { relaySignal } from '../relay/engine.js';
 import { listRules, addRule, updateRule, removeRule, getRule } from '../relay/rule-engine.js';
 import { getPendingBuffers, retryBufferedSignals, flushBuffer } from '../relay/buffer-manager.js';
 import { getRelayStatistics } from '../relay/stats-aggregator.js';
 import { ALL_TOOLS, TOOL_HANDLERS } from '../tools/index.js';
+
+// Extend Express Request for request ID tracing
+declare global {
+  namespace Express {
+    interface Request {
+      requestId?: string;
+    }
+  }
+}
 
 // CORS whitelist - restrict to known origins for security
 const ALLOWED_ORIGINS = [
@@ -72,6 +82,14 @@ export class HttpServer {
 
     // Apply general rate limiting
     this.app.use(generalLimiter);
+
+    // Request ID tracing middleware (Linus audit compliance)
+    this.app.use((req: Request, res: Response, next: NextFunction) => {
+      const requestId = (req.headers['x-request-id'] as string) || randomUUID();
+      req.requestId = requestId;
+      res.setHeader('X-Request-ID', requestId);
+      next();
+    });
   }
 
   private setupRoutes(): void {
@@ -86,6 +104,31 @@ export class HttpServer {
         port: this.port,
         stats
       });
+    });
+
+    // Readiness check (Linus audit compliance - checks DB connectivity)
+    this.app.get('/health/ready', (req: Request, res: Response) => {
+      try {
+        const db = getDatabase();
+        const stats = db.getStats();
+
+        res.json({
+          ready: true,
+          server: 'synapse-relay',
+          checks: {
+            database: stats !== undefined
+          }
+        });
+      } catch (error) {
+        res.status(503).json({
+          ready: false,
+          server: 'synapse-relay',
+          checks: {
+            database: false
+          },
+          error: 'Database not ready'
+        });
+      }
     });
 
     // Relay a signal (stricter rate limit)
